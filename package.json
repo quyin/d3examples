@@ -1,0 +1,20 @@
+{
+  "name": "d3examples",
+  "version": "0.0.1",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.tamu.edu:quyin/d3examples.git"
+  },
+  "author": "Yin Qu",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.13.3",
+    "serve-index": "^1.7.2",
+    "serve-static": "^1.10.0"
+  }
+}
