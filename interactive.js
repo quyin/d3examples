@@ -21,120 +21,108 @@ function main() {
     });
     console.log(users);
 
-    // a bunch of helper functions that are used by D3 to compute attribute
-    // values, or to call back when events happen
-
-    function translate(d) {
-      return 'translate(' + d.x + ',' + d.y + ')';
-    }
-
-    function fill(d, i) {
-      if (d.isRoot) {
-        return 'none';
-      } else {
-        return palette(i);
-      }
-    }
-
-    function nodeText(d) {
-      if (!d.isRoot) {
-        if (d.isActive) {
-          return d.nickname;
-        }
-        return d.following.length;
-      }
-    }
-
-    function fontSize(d) {
-      if (!d.isRoot) {
-        if (d.isActive) {
-          return '18pt';
-        }
-        return '9pt';
-      }
-    }
-
-    function mouseEnter(d) {
-      if (!d.isRoot) {
-        // when the user hovers over a node, we mark it as isActive
-        d.isActive = true;
-        update();
-      }
-    }
-
-    function mouseLeave(d) {
-      if (!d.isRoot) {
-        d.isActive = false;
-        update();
-      }
-    }
-
-    function click(d) {
-      if (d.id) {
-        window.open('https://flickr.com/' + d.id, '_blank');
-      }
-    }
-
     var palette = d3.scale.category20();
 
-    var bubbleLayout = d3.layout.pack().size([800, 800]).sort(null).padding(5);
+    // create a layout helper
+    var bubbleLayout = d3.layout
+      .pack()           // type of layout (short for 'circle packing')
+      .size([800, 800]) // total size of laid out visualization
+      .sort(null)       // tell D3 not to sort data
+      .padding(5);      // padding between bubbles, in pixel
+
+    // for circle packing algorithms, d3 assumes that the input data has a
+    // predefined field, 'value', so that it can compute the size for each
+    // circle.
+    //
+    // or, you can provide a function to compute the value for each data record,
+    // which is what we are doing here.
     bubbleLayout.value(function(user) {
-      if (user.isActive) {
-        // when the data record is active (hovered over), we return a value
-        // triple its actual value, to make it larger.
-        //
-        // **we change the value instead of just scaling the <circle> element
-        // because we want D3 to recompute the layout.**
-        return user.following.length * 3;
+      if (user.mousedOver) {
+        return user.following.length * 2;
       } else {
         return user.following.length;
       }
     });
+
+    // the 'circle packing' algorithm is designed for hierarchical data. here we
+    // just pack all user records into one single root, so that the data can
+    // work with the algorithm.
     var root = {
-      isRoot: true,
-      children: users,
+      isRoot: true,    // used to tell if a data record is the root or not
+      children: users, // predefined by the layout algorithm for representing hierachies
     };
 
+    function transform(d) {
+      // we apply a transform on the whole <g> so that we don't have to specify
+      // x and y on circles and text elements individually.
+      return 'translate(' + d.x + ',' + d.y + ')';
+    }
+
+    function fontSize(d) {
+      if (d.mousedOver) {
+        return '18pt';
+      } else {
+        return '9pt';
+      }
+    }
+
+    function radius(d) {
+      // r is a field added by the layout algorithm. its value indicates the
+      // radius of the laid out circle for this data record.
+      return d.r;
+    }
+
     function update() {
-      // everytime update() is called, we (re)compute the layout, using the
-      // previously provided value function
       var laidOut = bubbleLayout.nodes(root);
 
       var node = svg.selectAll('.node').data(laidOut);
 
-      // deal with newly created nodes:
-
-      var g = node.enter().append('g').classed('node', true); // note 'enter()'
-      g.attr('transform', translate);
+      var g = node.enter().append('g').classed('node', true);
+      g.attr('transform', transform);
+      g.on('mouseenter', function(d, i) {
+        d.mousedOver = true;
+        update();
+      });
+      g.on('mouseleave', function(d, i) {
+        d.mousedOver = false;
+        update();
+      });
+      g.on('click', function(d, i) {
+        console.log("clicked: ", d);
+      });
 
       var circle = g.append('circle');
-      circle.attr('r', function(d) { return d.r; });
-      circle.style('fill', fill);
-      g.on('mouseenter', mouseEnter);
-      g.on('mouseleave', mouseLeave);
-      g.on('click', click);
+      circle.attr('r', radius);
+      circle.style('fill', function(d, i) {
+        if (d.isRoot) {
+          return 'none'; // don't fill the circle that contains everything
+        } else {
+          return palette(i);
+        }
+      });
 
       var text = g.append('text');
-      text.text(nodeText);
+      text.text(function(d) {
+        if (!d.isRoot) {
+          return d.following.length;
+        }
+      });
+
       text.attr('font-family', 'Helvetica');
       text.attr('font-size', fontSize);
       text.attr('text-anchor', 'middle');
       text.attr('dominant-baseline', 'middle');
 
-      // deal with existing nodes:
+      var transition = node.transition().duration(1000);
+      transition.attr('transform', transform)
+      transition.select('text').attr('font-size', fontSize);
+      transition.select('circle').attr('r', radius);
+    };
 
-      var transition = node.transition().duration(1000); // operate on all nodes
-      transition.attr('transform', translate);
-      transition.select('circle').attr('r', function(d) { return d.r; });
-      transition.select('text').attr('font-size', fontSize).text(nodeText);
-
-      // if some nodes are removed, you can use node.exit() to get a placeholder
-      // to operate on them
-    }
-
-    update(); // on initial page loading, use update() to show the visualization
+    update();
   });
 }
 
 main();
+
 
